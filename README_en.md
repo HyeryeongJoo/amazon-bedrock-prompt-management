@@ -27,13 +27,13 @@ bedrock_prompt_management_system/
 ## 🎯 Usage Scenarios
 
 **When you only need simple retrieval**
-→ Use `simple.py`
+→ Use `bedrock_prompt_management_version_control_simple.py`
 
 **When version management is required**
-→ Use `advanced.py`
+→ Use `bedrock_prompt_management_version_control_advanced.py`
 
 **When production deployment is needed**
-→ Use the promote feature in `advanced.py`
+→ Use the promote feature in `bedrock_prompt_management_version_control_advanced.py`
 
 ## 🛠️ Quick Start
 
@@ -63,6 +63,116 @@ python3 bedrock_prompt_management_version_control_simple.py
 ```bash
 python3 bedrock_prompt_management_version_control_advanced.py
 ```
+
+## 📋 Example of execution results
+
+### Simple Version execution results
+============================================================
+📝 1. Retrieving prompts from all environments:
+------------------------------------------------------------
+
+🌍 Environment: DEV (Development Environment)
+📍 Parameter Path: /prompts/text2sql/dev/current
+📝 Simple text retrieval:
+------------------------------------------------------------
+Retrieved Prompt identifier from Parameter Store: 1MVVP7OY39
+✅ Prompt text: Tell me kimchi recipe in Korean.
+----------------------------------------
+
+🌍 Environment: PROD (Production Environment)
+📍 Parameter Path: /prompts/text2sql/prod/current
+📝 Simple text retrieval:
+------------------------------------------------------------
+Retrieved Prompt identifier from Parameter Store: ZWAL5F16XF
+✅ Prompt text: Tell me kimbab recipe in Korean.
+----------------------------------------
+
+============================================================
+🌍 2. Environment-based Prompt Status:
+------------------------------------------------------------
+Retrieved Prompt identifier from Parameter Store: 1MVVP7OY39
+✅ DEV      | dev | Tell me kimchi recipe in Korean....
+Retrieved Prompt identifier from Parameter Store: ZWAL5F16XF
+✅ PROD     | prod | Tell me kimbab recipe in Korean....
+
+============================================================
+📊 3. Prompt Comparing DEV vs PROD:
+------------------------------------------------------------
+Retrieved Prompt identifier from Parameter Store: 1MVVP7OY39
+Retrieved Prompt identifier from Parameter Store: ZWAL5F16XF
+
+
+Parameter 1: /prompts/text2sql/dev/current
+Content: Tell me kimchi recipe in Korean.
+
+Parameter 2: /prompts/text2sql/prod/current
+Content: Tell me kimbab recipe in Korean.
+
+🔍 Same content: ❌ No
+
+============================================================
+
+### Advanced Version execution results
+
+🚀 Starting Prompt Version Control
+This demo will show you how to:
+  • Select working environment (DEV/PROD)
+  • Create tagged versions
+  • List versions with tags
+  • Rollback to previous versions
+  • Promote between environments
+🌍 Environment Selection
+========================================
+Available environments:
+  DEV: Development Environment
+    Parameter Store: /prompts/text2sql/dev/current
+  PROD: Production Environment
+    Parameter Store: /prompts/text2sql/prod/current
+
+👉 Select environment (dev/prod): dev
+🎯 Initialized for Development Environment
+📍 Parameter Store: /prompts/text2sql/dev/current
+✅ Retrieved Prompt ID from DEV: 1MVVP7OY39
+
+🎯 Using Prompt ID: 1MVVP7OY39
+🌍 Working in DEV environment
+
+============================================================
+🏷️  Bedrock Prompt Version Control & Rollback Demo (DEV)
+============================================================
+1. 📋 List all versions with tags
+2. 🏷️  Create new tagged version
+3. 🔄 Rollback to specific version
+4. 🚀 Promote version between environments
+5. 🔄 Switch environment
+6. 🚪 Exit
+
+👉 Select option (1-6): 2
+
+🏷️ Creating new tagged version in DEV...
+Enter new content: Tell me my mom's kimchi recipe. 
+Enter version tag (default: v1.0.0-dev): v1.5-dev
+Enter description (optional): 
+✅ Created version 16 with tags:
+   Environment: DEV
+   Status: TESTING
+   Version: v1.5-dev
+   CreatedDate: 2025-07-09
+   CreatedTime: 17:27:25
+   SourceEnvironment: DEV
+✅ Created version 16 successfully!
+
+============================================================
+🏷️  Bedrock Prompt Version Control & Rollback Demo (DEV)
+============================================================
+1. 📋 List all versions with tags
+2. 🏷️  Create new tagged version
+3. 🔄 Rollback to specific version
+4. 🚀 Promote version between environments
+5. 🔄 Switch environment
+6. 🚪 Exit
+
+
 
 ## 🏷️ Tag System
 

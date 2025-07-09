@@ -295,10 +295,10 @@ class PromptVersionController:
     def promote_version(self, prompt_identifier: str, from_env: str, to_env: str, 
                        version_tag: str) -> bool:
         """
-        환경 간 버전 승격 - 실제 타겟 환경의 Prompt 업데이트
+        환경 간 버전 승격
         
         Args:
-            prompt_identifier: 소스 환경의 Prompt ID
+            prompt_identifier: Prompt ID
             from_env: 소스 환경
             to_env: 타겟 환경
             version_tag: 새 버전 태그
@@ -307,99 +307,27 @@ class PromptVersionController:
             성공 여부
         """
         try:
-            print(f"🔄 Starting promotion from {from_env.upper()} to {to_env.upper()}...")
+            # 현재 DRAFT 내용으로 새 버전 생성
+            current_prompt = self.bedrock_agent.get_prompt(promptIdentifier=prompt_identifier)
+            current_content = current_prompt['variants'][0]['templateConfiguration']['text']['text']
             
-            # 1. 소스 환경의 현재 DRAFT 내용 가져오기
-            source_prompt = self.bedrock_agent.get_prompt(promptIdentifier=prompt_identifier)
-            source_content = source_prompt['variants'][0]['templateConfiguration']['text']['text']
-            
-            print(f"📋 Source content: {source_content[:100]}...")
-            
-            # 2. 타겟 환경의 Parameter Store에서 Prompt ID 가져오기
-            target_param_path = ENVIRONMENT_CONFIG[to_env]['parameter_store_path']
-            
-            try:
-                target_response = self.ssm_client.get_parameter(
-                    Name=target_param_path,
-                    WithDecryption=True
-                )
-                target_prompt_id = target_response['Parameter']['Value']
-                print(f"🎯 Target Prompt ID ({to_env.upper()}): {target_prompt_id}")
-            except ClientError as e:
-                print(f"❌ Could not get target environment Prompt ID: {e}")
-                return False
-            
-            # 3. 타겟 환경의 현재 Prompt 정보 가져오기
-            try:
-                target_prompt = self.bedrock_agent.get_prompt(promptIdentifier=target_prompt_id)
-                print(f"📋 Current target content: {target_prompt['variants'][0]['templateConfiguration']['text']['text'][:100]}...")
-            except ClientError as e:
-                print(f"❌ Could not get target prompt details: {e}")
-                return False
-            
-            # 4. 타겟 환경의 DRAFT를 소스 내용으로 업데이트
-            updated_variants = []
-            for variant in target_prompt.get('variants', []):
-                updated_variant = variant.copy()
-                updated_variant['templateConfiguration']['text']['text'] = source_content
-                updated_variants.append(updated_variant)
-            
-            self.bedrock_agent.update_prompt(
-                promptIdentifier=target_prompt_id,
-                name=target_prompt.get('name'),
-                description=f"Promoted from {from_env.upper()} - {version_tag}",
-                variants=updated_variants
+            new_version = self.create_tagged_version(
+                prompt_identifier=prompt_identifier,
+                content=current_content,
+                environment=to_env,
+                version_tag=version_tag,
+                description=f"Promoted from {from_env.upper()} to {to_env.upper()}"
             )
             
-            print(f"✅ Updated {to_env.upper()} DRAFT with {from_env.upper()} content")
-            
-            # 5. 타겟 환경에서 새 버전 생성
-            version_response = self.bedrock_agent.create_prompt_version(
-                promptIdentifier=target_prompt_id,
-                description=f"Promoted from {from_env.upper()} to {to_env.upper()} - {version_tag}"
-            )
-            
-            new_version = version_response.get('version')
-            new_arn = version_response.get('arn')
-            
-            # 6. 승격 태그 적용
-            base_tags = ENVIRONMENT_CONFIG.get(to_env, {}).get('default_tags', {})
-            promotion_tags = {
-                **base_tags,
-                'Version': version_tag,
-                'PromotedFrom': from_env.upper(),
-                'PromotedDate': datetime.now().strftime('%Y-%m-%d'),
-                'PromotedTime': datetime.now().strftime('%H:%M:%S'),
-                'SourcePromptId': prompt_identifier,
-                'PromotionType': 'ENVIRONMENT_PROMOTION'
-            }
-            
-            self.bedrock_agent.tag_resource(
-                resourceArn=new_arn,
-                tags=promotion_tags
-            )
-            
-            print(f"✅ Successfully promoted from {from_env.upper()} to {to_env.upper()}")
-            print(f"   Source Prompt ID: {prompt_identifier}")
-            print(f"   Target Prompt ID: {target_prompt_id}")
-            print(f"   New version in {to_env.upper()}: {new_version} ({version_tag})")
-            print(f"   Applied tags: {promotion_tags}")
-            
-            # 7. 승격 후 검증
-            verification_prompt = self.bedrock_agent.get_prompt(promptIdentifier=target_prompt_id)
-            verification_content = verification_prompt['variants'][0]['templateConfiguration']['text']['text']
-            
-            if verification_content == source_content:
-                print(f"✅ Verification successful: Content matches in {to_env.upper()}")
+            if new_version:
+                print(f"✅ Successfully promoted from {from_env.upper()} to {to_env.upper()}")
+                print(f"   New version: {new_version} ({version_tag})")
                 return True
-            else:
-                print(f"⚠️ Verification warning: Content may not match exactly")
-                return True
+            
+            return False
             
         except Exception as e:
             print(f"❌ Error during promotion: {e}")
-            import traceback
-            traceback.print_exc()
             return False
 
 def interactive_demo():
@@ -459,48 +387,25 @@ def interactive_demo():
                     env = version_info['tags'].get('Environment', 'N/A')
                     ver = version_info['tags'].get('Version', 'N/A')
                     status = version_info['tags'].get('Status', 'N/A')
-                    
-                    # Source 정보 결정 로직
-                    source_prompt_id = version_info['tags'].get('SourcePromptId', '')
-                    source_env = version_info['tags'].get('SourceEnvironment', '')
-                    promoted_from = version_info['tags'].get('PromotedFrom', '')
-                    
-                    if source_prompt_id:
-                        # 승격된 버전인 경우 - SourcePromptId 표시
-                        source = f"Prompt:{source_prompt_id}"
-                    elif promoted_from:
-                        # 승격 정보가 있는 경우
-                        source = f"From:{promoted_from}"
-                    elif source_env:
-                        # 일반적인 소스 환경 정보
-                        source = source_env
-                    else:
-                        source = 'N/A'
-                    
+                    source = version_info['tags'].get('SourceEnvironment', 'N/A')
                     print(f"   🏷️  {env} | {ver} | {status} | Source: {source}")
                 else:
                     print('   🏷️  DRAFT | No tags')
         
         elif choice == "2":
             print(f"\n🏷️ Creating new tagged version in {selected_env.upper()}...")
-            
-            content = input("Enter new content: ").strip()
-            if not content:
-                print("❌ Content cannot be empty")
-                continue
+            content = input("Enter new content: ")
             
             # 환경별 기본값 제공
-            timestamp = datetime.now().strftime('%Y%m%d-%H%M')
-            default_version = f"v1.0.0-{selected_env}-{timestamp}"
+            default_version = f"v1.0.0-{selected_env}"
             version_tag = input(f"Enter version tag (default: {default_version}): ").strip()
             if not version_tag:
                 version_tag = default_version
-                print(f"Using default version tag: {version_tag}")
                 
-            description = input("Enter description (optional): ").strip()
+            description = input("Enter description (optional): ")
             
             new_version = controller.create_tagged_version(
-                prompt_id, content, version_tag=version_tag, description=description or None
+                prompt_id, content, version_tag=version_tag, description=description
             )
             
             if new_version:
@@ -511,38 +416,14 @@ def interactive_demo():
             
             # 먼저 버전 목록 표시
             versions = controller.list_versions_with_tags(prompt_id)
-            if len(versions) <= 1:
-                print("❌ No versions available for rollback (only DRAFT exists)")
-                continue
-                
             print("\nAvailable versions:")
             for i, version_info in enumerate(versions):
                 env_tag = version_info['tags'].get('Environment', 'N/A')
                 ver_tag = version_info['tags'].get('Version', 'N/A')
                 print(f"  {i+1}. Version {version_info['version']} - {env_tag} {ver_tag}")
             
-            while True:
-                target_version = input("\nEnter version number to rollback to: ").strip()
-                if not target_version:
-                    print("❌ Please enter a version number")
-                    continue
-                
-                # 버전 번호 검증
-                version_exists = False
-                for version_info in versions:
-                    if version_info['version'] == target_version:
-                        version_exists = True
-                        break
-                
-                if not version_exists:
-                    print(f"❌ Version {target_version} not found. Please choose from the list above.")
-                    continue
-                else:
-                    break
-            
-            reason = input("Enter rollback reason (optional): ").strip()
-            if not reason:
-                reason = f"Manual rollback to version {target_version}"
+            target_version = input("\nEnter version number to rollback to: ")
+            reason = input("Enter rollback reason: ")
             
             success = controller.rollback_to_version(prompt_id, target_version, reason)
             if success:
@@ -555,23 +436,12 @@ def interactive_demo():
             other_envs = [env for env in SUPPORTED_ENVIRONMENTS if env != selected_env]
             print(f"Available target environments: {', '.join(other_envs)}")
             
-            while True:
-                to_env = input(f"To environment ({'/'.join(other_envs)}): ").lower().strip()
-                if not to_env:
-                    print("❌ Please enter a target environment")
-                    continue
-                elif to_env not in other_envs:
-                    print(f"❌ Invalid target environment. Please choose from: {', '.join(other_envs)}")
-                    continue
-                else:
-                    break
-            
-            version_tag = input("New version tag (e.g., v1.3.0): ").strip()
-            if not version_tag:
-                # 기본 버전 태그 생성
-                timestamp = datetime.now().strftime('%Y%m%d-%H%M')
-                version_tag = f"v1.0.0-{to_env}-{timestamp}"
-                print(f"Using default version tag: {version_tag}")
+            to_env = input(f"To environment ({'/'.join(other_envs)}): ").lower().strip()
+            if to_env not in other_envs:
+                print("❌ Invalid target environment")
+                continue
+                
+            version_tag = input("New version tag (e.g., v1.3.0): ")
             
             success = controller.promote_version(prompt_id, selected_env, to_env, version_tag)
             if success:
@@ -592,7 +462,7 @@ def interactive_demo():
 
 def main():
     """메인 실행 함수"""
-    print("🚀 Starting Bedrock Prompt Version Control Demo")
+    print("🚀 Starting Prompt Version Control")
     print("This demo will show you how to:")
     print("  • Select working environment (DEV/PROD)")
     print("  • Create tagged versions")
