@@ -27,6 +27,8 @@ bedrock_prompt_management_system/
 - **롤백 기능**: 이전 버전으로 안전한 롤백
 - **대화형 인터페이스**: 사용자 친화적인 CLI 인터페이스
 
+#### Advanced Version 실행 결과
+![Advanced Version 실행 결과](./imgs/Advanced-Version-execution-results.png)
 
 ## 🎯 사용 시나리오
 
@@ -66,13 +68,6 @@ python3 bedrock_prompt_management_version_control_simple.py
 python3 bedrock_prompt_management_version_control_advanced.py
 
 
-## 📋 샘플 실행 결과
-
-### 1. Simple Version 실행 결과
-![Simple Version 실행 결과](./imgs/Simple-Version-execution-results.png)
-
-### 2. Advanced Version 실행 결과
-![Advanced Version 실행 결과](./imgs/Advanced-Version-execution-results.png)
 
 ## 🏷️ 태그 시스템
 

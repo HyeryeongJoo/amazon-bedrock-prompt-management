@@ -18,11 +18,19 @@ bedrock_prompt_management_system/
 - **Environment Status Check**: Compare prompt status between DEV/PROD environments
 - **Prompt Comparison**: Check content consistency between two environments
 
+#### Simple Version execution results
+![Simple Version execution results](./imgs/Simple-Version-execution-results.png)
+
+
 ### 🏷️ Advanced Version (Advanced Version Control)
 - **Tag-based Version Management**: Create versions with meaningful tags (composite tags)
 - **Cross-environment Promotion**: Automated DEV → PROD promotion process
 - **Rollback Functionality**: Safe rollback to previous versions
 - **Interactive Interface**: User-friendly CLI interface
+
+#### Advanced Version execution results
+![Advanced Version execution results](./imgs/Advanced-Version-execution-results.png)
+
 
 ## 🎯 Usage Scenarios
 
@@ -63,15 +71,6 @@ python3 bedrock_prompt_management_version_control_simple.py
 ```bash
 python3 bedrock_prompt_management_version_control_advanced.py
 ```
-
-## 📋 Example of execution results
-
-### 1. Simple Version execution results
-![Simple Version execution results](./imgs/Simple-Version-execution-results.png)
-
-### 2. Advanced Version execution results
-![Advanced Version execution results](./imgs/Advanced-Version-execution-results.png)
-
 
 
 ## 🏷️ Tag System
