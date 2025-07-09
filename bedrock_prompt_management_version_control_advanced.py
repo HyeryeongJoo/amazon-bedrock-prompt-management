@@ -295,10 +295,10 @@ class PromptVersionController:
     def promote_version(self, prompt_identifier: str, from_env: str, to_env: str, 
                        version_tag: str) -> bool:
         """
-        환경 간 버전 승격
+        환경 간 버전 승격 - 실제 타겟 환경의 Prompt 업데이트
         
         Args:
-            prompt_identifier: Prompt ID
+            prompt_identifier: 소스 환경의 Prompt ID
             from_env: 소스 환경
             to_env: 타겟 환경
             version_tag: 새 버전 태그
@@ -307,27 +307,99 @@ class PromptVersionController:
             성공 여부
         """
         try:
-            # 현재 DRAFT 내용으로 새 버전 생성
-            current_prompt = self.bedrock_agent.get_prompt(promptIdentifier=prompt_identifier)
-            current_content = current_prompt['variants'][0]['templateConfiguration']['text']['text']
+            print(f"🔄 Starting promotion from {from_env.upper()} to {to_env.upper()}...")
             
-            new_version = self.create_tagged_version(
-                prompt_identifier=prompt_identifier,
-                content=current_content,
-                environment=to_env,
-                version_tag=version_tag,
-                description=f"Promoted from {from_env.upper()} to {to_env.upper()}"
+            # 1. 소스 환경의 현재 DRAFT 내용 가져오기
+            source_prompt = self.bedrock_agent.get_prompt(promptIdentifier=prompt_identifier)
+            source_content = source_prompt['variants'][0]['templateConfiguration']['text']['text']
+            
+            print(f"📋 Source content: {source_content[:100]}...")
+            
+            # 2. 타겟 환경의 Parameter Store에서 Prompt ID 가져오기
+            target_param_path = ENVIRONMENT_CONFIG[to_env]['parameter_store_path']
+            
+            try:
+                target_response = self.ssm_client.get_parameter(
+                    Name=target_param_path,
+                    WithDecryption=True
+                )
+                target_prompt_id = target_response['Parameter']['Value']
+                print(f"🎯 Target Prompt ID ({to_env.upper()}): {target_prompt_id}")
+            except ClientError as e:
+                print(f"❌ Could not get target environment Prompt ID: {e}")
+                return False
+            
+            # 3. 타겟 환경의 현재 Prompt 정보 가져오기
+            try:
+                target_prompt = self.bedrock_agent.get_prompt(promptIdentifier=target_prompt_id)
+                print(f"📋 Current target content: {target_prompt['variants'][0]['templateConfiguration']['text']['text'][:100]}...")
+            except ClientError as e:
+                print(f"❌ Could not get target prompt details: {e}")
+                return False
+            
+            # 4. 타겟 환경의 DRAFT를 소스 내용으로 업데이트
+            updated_variants = []
+            for variant in target_prompt.get('variants', []):
+                updated_variant = variant.copy()
+                updated_variant['templateConfiguration']['text']['text'] = source_content
+                updated_variants.append(updated_variant)
+            
+            self.bedrock_agent.update_prompt(
+                promptIdentifier=target_prompt_id,
+                name=target_prompt.get('name'),
+                description=f"Promoted from {from_env.upper()} - {version_tag}",
+                variants=updated_variants
             )
             
-            if new_version:
-                print(f"✅ Successfully promoted from {from_env.upper()} to {to_env.upper()}")
-                print(f"   New version: {new_version} ({version_tag})")
-                return True
+            print(f"✅ Updated {to_env.upper()} DRAFT with {from_env.upper()} content")
             
-            return False
+            # 5. 타겟 환경에서 새 버전 생성
+            version_response = self.bedrock_agent.create_prompt_version(
+                promptIdentifier=target_prompt_id,
+                description=f"Promoted from {from_env.upper()} to {to_env.upper()} - {version_tag}"
+            )
+            
+            new_version = version_response.get('version')
+            new_arn = version_response.get('arn')
+            
+            # 6. 승격 태그 적용
+            base_tags = ENVIRONMENT_CONFIG.get(to_env, {}).get('default_tags', {})
+            promotion_tags = {
+                **base_tags,
+                'Version': version_tag,
+                'PromotedFrom': from_env.upper(),
+                'PromotedDate': datetime.now().strftime('%Y-%m-%d'),
+                'PromotedTime': datetime.now().strftime('%H:%M:%S'),
+                'SourcePromptId': prompt_identifier,
+                'PromotionType': 'ENVIRONMENT_PROMOTION'
+            }
+            
+            self.bedrock_agent.tag_resource(
+                resourceArn=new_arn,
+                tags=promotion_tags
+            )
+            
+            print(f"✅ Successfully promoted from {from_env.upper()} to {to_env.upper()}")
+            print(f"   Source Prompt ID: {prompt_identifier}")
+            print(f"   Target Prompt ID: {target_prompt_id}")
+            print(f"   New version in {to_env.upper()}: {new_version} ({version_tag})")
+            print(f"   Applied tags: {promotion_tags}")
+            
+            # 7. 승격 후 검증
+            verification_prompt = self.bedrock_agent.get_prompt(promptIdentifier=target_prompt_id)
+            verification_content = verification_prompt['variants'][0]['templateConfiguration']['text']['text']
+            
+            if verification_content == source_content:
+                print(f"✅ Verification successful: Content matches in {to_env.upper()}")
+                return True
+            else:
+                print(f"⚠️ Verification warning: Content may not match exactly")
+                return True
             
         except Exception as e:
             print(f"❌ Error during promotion: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
 def interactive_demo():

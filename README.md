@@ -18,6 +18,9 @@ bedrock_prompt_management_system/
 - **환경별 상태 확인**: DEV/PROD 환경의 프롬프트 상태 비교
 - **프롬프트 비교**: 두 환경 간 프롬프트 내용 일치 여부 확인
 
+#### Simple Version 실행 결과
+![Simple Version 실행 결과](./imgs/Simple-Version-execution-results.png)
+
 ### 🏷️ Advanced Version (고급 버전 제어)
 - **태그 기반 버전 관리**: 의미있는 태그(복합 태그)와 함께 버전 생성
 - **환경 간 승격**: DEV → PROD 자동 승격 프로세스
@@ -62,6 +65,14 @@ python3 bedrock_prompt_management_version_control_simple.py
 ### 5. 대화형 버전 관리
 python3 bedrock_prompt_management_version_control_advanced.py
 
+
+## 📋 샘플 실행 결과
+
+### 1. Simple Version 실행 결과
+![Simple Version 실행 결과](./imgs/Simple-Version-execution-results.png)
+
+### 2. Advanced Version 실행 결과
+![Advanced Version 실행 결과](./imgs/Advanced-Version-execution-results.png)
 
 ## 🏷️ 태그 시스템
 
